@@ -3,5 +3,5 @@ display_name: "AWS Kiro Gateway"
 version: 1.0.0
 description: "Native gateway and auth provider for AWS Kiro / Amazon Q Developer subscription in Hermes Agent"
 author: "Kalyan"
-homepage: "https://github.com/kalyanace44/hermes-kiro-auth"
+homepage: "https://github.com/kalyanace44/hermes-kiro-auth-native"
 main: "__init__.py"

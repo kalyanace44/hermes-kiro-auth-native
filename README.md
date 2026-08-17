@@ -1,4 +1,4 @@
-# Hermes Kiro Auth (`hermes-kiro-auth`)
+# Hermes Kiro Auth (`hermes-kiro-auth-native`)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Hermes Agent](https://img.shields.io/badge/Hermes-Plugin-blue.svg)](https://hermesagent.com)
@@ -38,8 +38,14 @@
 ### Option 1: One-Line Installer (Recommended)
 
 ```bash
-git clone https://github.com/kalyanace44/hermes-kiro-auth.git
-cd hermes-kiro-auth
+curl -fsSL https://raw.githubusercontent.com/kalyanace44/hermes-kiro-auth-native/main/install.sh | bash
+```
+
+### Option 2: Clone and Install
+
+```bash
+git clone https://github.com/kalyanace44/hermes-kiro-auth-native.git
+cd hermes-kiro-auth-native
 chmod +x install.sh && ./install.sh
 ```
 
