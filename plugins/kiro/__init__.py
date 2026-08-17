@@ -94,7 +94,7 @@ def get_profile_info():
             import sqlite3
             conn = sqlite3.connect(db_file)
             cursor = conn.cursor()
-            cursor.execute("SELECT val FROM auth_kv WHERE key LIKE '%device-registration%' LIMIT 1")
+            cursor.execute("SELECT value FROM auth_kv WHERE key LIKE '%device-registration%' LIMIT 1")
             row = cursor.fetchone()
             if row and row[0]:
                 reg_data = json.loads(row[0])
@@ -112,6 +112,12 @@ def is_port_in_use(port):
     import socket
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         return s.connect_ex(('127.0.0.1', port)) == 0
+
+def kill_existing_gateway():
+    try:
+        subprocess.run(["pkill", "-9", "go-kiro-gateway"], stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+    except Exception:
+        pass
 
 def start_gateway():
     global _gateway_process
@@ -135,7 +141,7 @@ def start_gateway():
     if db_file:
         env["KIRO_CLI_DB_FILE"] = db_file
 
-    logger.info(f"[Kiro] Launching Kiro gateway on port {PORT} (region: {region})...")
+    logger.info(f"[Kiro] Launching Kiro gateway on port {PORT} (region: {region}, arn: {arn})...")
     
     try:
         _gateway_process = subprocess.Popen(
@@ -165,11 +171,52 @@ def stop_gateway():
         except Exception:
             pass
         _gateway_process = None
+    kill_existing_gateway()
+
+def restart_gateway():
+    stop_gateway()
+    time.sleep(0.5)
+    start_gateway()
+
+def _start_db_watcher():
+    import threading
+    db_file = find_sqlite_db()
+    if not db_file or not os.path.exists(db_file):
+        return
+
+    def watch_loop():
+        last_mtime = os.path.getmtime(db_file)
+        while True:
+            time.sleep(2)
+            try:
+                if os.path.exists(db_file):
+                    current_mtime = os.path.getmtime(db_file)
+                    if current_mtime > last_mtime:
+                        last_mtime = current_mtime
+                        logger.info("[Kiro] Detected updated Kiro login credentials in SQLite. Automatically restarting gateway...")
+                        restart_gateway()
+            except Exception:
+                pass
+
+    t = threading.Thread(target=watch_loop, daemon=True)
+    t.start()
+
+def handle_reload_slash(args):
+    restart_gateway()
+    return "✅ Kiro gateway reloaded with latest credentials from SQLite."
+
+def register(ctx):
+    ctx.register_command(
+        "kiro-reload",
+        handler=handle_reload_slash,
+        description="Reload Kiro gateway with latest credentials from SQLite"
+    )
 
 atexit.register(stop_gateway)
 
 # Automatically start gateway upon plugin load
 try:
     start_gateway()
+    _start_db_watcher()
 except Exception as e:
     logger.error(f"[Kiro] Init error: {e}")
