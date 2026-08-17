@@ -1,34 +1,38 @@
-# Hermes Kiro Auth (`hermes-kiro-auth`)
+# Hermes Kiro Auth (`hermes-kiro-auth-native`)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Hermes Agent](https://img.shields.io/badge/Hermes-Plugin-blue.svg)](https://hermesagent.com)
 [![Platform](https://img.shields.io/badge/Platform-macOS%20%7C%20Linux%20%7C%20Windows-green.svg)](https://kiro.dev)
 
-> Native Hermes Agent plugin to seamlessly authenticate and query **Claude 3.7 Sonnet**, **Claude Opus 4.6**, **Claude 5**, and other frontier models using your **AWS Kiro (Amazon Q Developer / CodeWhisperer)** subscription.
+> Native Hermes Agent plugin to seamlessly authenticate and query **Claude 3.7 Sonnet**, **Claude Opus 4.8**, **Claude 5**, **GPT-5.6**, and other frontier models directly using your **AWS Kiro (Amazon Q Developer / CodeWhisperer)** subscription.
 
 ---
 
 ## ✨ Features
 
-- 🚀 **Zero-Config Self-Healing Gateway**: Automatically starts and stops the local gateway daemon on port `8997` with Hermes. No extra terminal tabs or background scripts required.
+- 🚀 **Zero-Config Self-Healing Gateway**: Automatically manages the local gateway daemon on port `8997` with Hermes.
 - 🔑 **Automatic Token & Profile Discovery**: Automatically finds and extracts your AWS SSO / Kiro credentials and CodeWhisperer profile ARN from your local `kiro-cli` SQLite database across macOS, Linux, and Windows.
+- 🔄 **Dynamic Model Discovery**: Real-time querying of the full live model catalogue directly from the AWS Kiro service.
 - ⚡ **Ultra-Fast Token Streaming**: Unbuffered Server-Sent Events (SSE) streaming with sub-100ms first-token latency.
 - 🛠️ **Hermes Model Selector Integration**: Integrates directly into the Hermes UI dropdown model picker as a first-class model provider.
 - 🧠 **Extended Thinking & Reasoning**: Full support for reasoning effort controls (`Low`, `Med`, `High`, `Max`) inside Hermes.
 
 ---
 
-## 🤖 Supported Models
+## 🤖 Supported Models (19 Models)
 
 | Model Name in Hermes | Family / Backend | Description |
 |---|---|---|
-| `auto-kiro` / `auto` | Auto-Routing | Dynamic model routing optimized by Kiro |
-| `claude-sonnet-4.6` | Anthropic Claude | Claude 3.5 / 4.6 Sonnet (Thinking & Code) |
+| `claude-sonnet-4.6` | Anthropic Claude | Claude 3.5 / 4.6 Sonnet (Thinking & High-speed Code) |
 | `claude-sonnet-4.5` | Anthropic Claude | General coding & software development |
 | `claude-sonnet-5` | Anthropic Claude | Next-generation Sonnet |
+| `claude-sonnet-4` | Anthropic Claude | Claude Sonnet 4 base |
+| `claude-3.7-sonnet` | Anthropic Claude | Claude 3.7 Sonnet with hybrid reasoning |
+| `claude-opus-5` | Anthropic Claude | Next-generation Opus |
+| `claude-opus-4.8` | Anthropic Claude | Opus 4.8 frontier reasoning |
+| `claude-opus-4.7` | Anthropic Claude | Opus 4.7 deep architecture |
 | `claude-opus-4.6` | Anthropic Claude | Deep reasoning, complex problem solving |
 | `claude-opus-4.5` | Anthropic Claude | Complex planning & architecture |
-| `claude-opus-5` | Anthropic Claude | Next-generation Opus |
 | `claude-haiku-4.5` | Anthropic Claude | Fast, low-latency utility & simple tasks |
 | `gpt-5.6-sol` | OpenAI GPT Foundation | Frontier reasoning & code synthesis |
 | `gpt-5.6-terra` | OpenAI GPT Foundation | Terra variation |
@@ -36,6 +40,8 @@
 | `minimax-m2.5` | MiniMax | Workflow planning & structured output |
 | `minimax-m2.1` | MiniMax | MiniMax M2.1 general coding |
 | `qwen3-coder-next` | Alibaba Qwen | Specialized coding & repository tasks |
+| `auto-kiro` | Auto-Routing | Dynamic model routing optimized by Kiro |
+| `auto` | Auto-Routing | General auto-routing |
 
 ---
 

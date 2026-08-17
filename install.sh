@@ -48,23 +48,27 @@ if [ -f "$CONFIG_FILE" ]; then
   kiro:
     api_key: mock
     base_url: http://127.0.0.1:8997/v1
-    default_model: auto-kiro
+    default_model: claude-sonnet-4.6
     models:
-      - auto-kiro
-      - auto
       - claude-sonnet-4.6
       - claude-sonnet-4.5
+      - claude-sonnet-5
+      - claude-sonnet-4
+      - claude-3.7-sonnet
+      - claude-opus-5
+      - claude-opus-4.8
+      - claude-opus-4.7
       - claude-opus-4.6
       - claude-opus-4.5
       - claude-haiku-4.5
-      - claude-sonnet-5
-      - claude-opus-5
       - gpt-5.6-sol
       - gpt-5.6-terra
       - gpt-5.6-luna
       - minimax-m2.5
       - minimax-m2.1
       - qwen3-coder-next
+      - auto-kiro
+      - auto
 EOF
         echo "✅ Added Kiro provider to ~/.hermes/config.yaml"
     fi
