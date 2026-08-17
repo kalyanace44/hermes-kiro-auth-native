@@ -21,10 +21,10 @@ if [ ! -d "plugins/kiro" ]; then
     rm -rf "$TEMP_DIR"
     mkdir -p "$TEMP_DIR"
     
-    curl -fsSL https://github.com/kalyanace44/hermes-kiro-auth/archive/refs/heads/main.zip -o "$TEMP_DIR/repo.zip"
+    curl -fsSL https://github.com/kalyanace44/hermes-kiro-auth-native/archive/refs/heads/main.zip -o "$TEMP_DIR/repo.zip"
     unzip -q "$TEMP_DIR/repo.zip" -d "$TEMP_DIR"
     
-    SRC_PATH="$TEMP_DIR/hermes-kiro-auth-main"
+    SRC_PATH="$TEMP_DIR/hermes-kiro-auth-native-main"
 else
     SRC_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     TEMP_DIR=""

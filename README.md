@@ -44,14 +44,14 @@
 ### Option 1: One-Line Installer (Recommended)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/kalyanace44/hermes-kiro-auth/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/kalyanace44/hermes-kiro-auth-native/main/install.sh | bash
 ```
 
 ### Option 2: Clone and Install
 
 ```bash
-git clone https://github.com/kalyanace44/hermes-kiro-auth.git
-cd hermes-kiro-auth
+git clone https://github.com/kalyanace44/hermes-kiro-auth-native.git
+cd hermes-kiro-auth-native
 chmod +x install.sh && ./install.sh
 ```
 
