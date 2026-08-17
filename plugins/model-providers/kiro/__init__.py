@@ -2,13 +2,20 @@ import providers
 from providers.base import ProviderProfile
 
 DISPLAY_MODELS = [
+    "auto-kiro",
+    "auto",
     "claude-sonnet-4.6",
     "claude-sonnet-4.5",
     "claude-opus-4.6",
     "claude-opus-4.5",
     "claude-haiku-4.5",
+    "claude-sonnet-5",
+    "claude-opus-5",
     "gpt-5.6-sol",
+    "gpt-5.6-terra",
+    "gpt-5.6-luna",
     "minimax-m2.5",
+    "minimax-m2.1",
     "qwen3-coder-next",
 ]
 

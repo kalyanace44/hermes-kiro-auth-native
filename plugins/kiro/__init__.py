@@ -53,13 +53,22 @@ def find_sqlite_db():
         os.path.expanduser("~/Library/Application Support/kiro-cli/data.sqlite3"),
         os.path.expanduser("~/.local/share/kiro-cli/data.sqlite3"),
         os.path.expanduser("~/.local/share/amazon-q/data.sqlite3"),
+        os.path.expanduser("~/.config/kiro-cli/data.sqlite3"),
     ]
+    appdata = os.environ.get("APPDATA")
+    if appdata:
+        candidates.append(os.path.join(appdata, "kiro-cli", "data.sqlite3"))
+    localappdata = os.environ.get("LOCALAPPDATA")
+    if localappdata:
+        candidates.append(os.path.join(localappdata, "kiro-cli", "data.sqlite3"))
+
     for p in candidates:
         if os.path.exists(p):
             return p
     return None
 
 def get_profile_info():
+    # 1. Try CLI whoami
     for cmd in ["kiro-cli", "kiro"]:
         exe = shutil.which(cmd) or (f"/usr/local/bin/{cmd}" if os.path.exists(f"/usr/local/bin/{cmd}") else None)
         if exe:
@@ -77,6 +86,26 @@ def get_profile_info():
                     return arn, region
             except Exception:
                 pass
+
+    # 2. Try reading from SQLite device registration
+    db_file = find_sqlite_db()
+    if db_file:
+        try:
+            import sqlite3
+            conn = sqlite3.connect(db_file)
+            cursor = conn.cursor()
+            cursor.execute("SELECT val FROM auth_kv WHERE key LIKE '%device-registration%' LIMIT 1")
+            row = cursor.fetchone()
+            if row and row[0]:
+                reg_data = json.loads(row[0])
+                region = reg_data.get("region", "eu-central-1")
+                profile_arn = reg_data.get("profileArn") or reg_data.get("profile_arn")
+                if profile_arn:
+                    return profile_arn, region
+                return f"arn:aws:codewhisperer:{region}:020807489866:profile/EUWNCR9VVUM7", region
+        except Exception:
+            pass
+
     return "arn:aws:codewhisperer:eu-central-1:020807489866:profile/EUWNCR9VVUM7", "eu-central-1"
 
 def is_port_in_use(port):
