@@ -17,7 +17,8 @@ from datetime import datetime, timezone
 
 logger = logging.getLogger("hermes.plugins.kiro")
 
-PORT = 8997
+PORT = 8997           # External port Hermes connects to (Python compaction proxy)
+INTERNAL_PORT = 8996  # Go gateway listens here
 PLUGIN_DIR = os.path.dirname(os.path.abspath(__file__))
 BIN_DIR = os.path.join(PLUGIN_DIR, "bin")
 BIN_PATH = os.path.join(BIN_DIR, "go-kiro-gateway")
@@ -454,9 +455,10 @@ def start_gateway():
         logger.error("[Kiro] Cannot start gateway: binary unavailable.")
         return
 
-    # Ensure isolated DB has credentials
+    # If no credentials in isolated Hermes store, skip startup — user must run /kiro-login
     if not read_token_from_db():
-        import_from_kiro_cli()
+        logger.info("[Kiro] No credentials in isolated store. Skipping gateway start. Run /kiro-login to authenticate.")
+        return
 
     # Pre-flight token refresh if needed
     ensure_fresh_token()
@@ -477,7 +479,7 @@ def start_gateway():
 
     try:
         _gateway_process = subprocess.Popen(
-            [bin_file, "-port", str(PORT)],
+            [bin_file, "-port", str(INTERNAL_PORT)],
             env=env,
             stdout=log_file,
             stderr=subprocess.STDOUT,
@@ -486,8 +488,8 @@ def start_gateway():
 
         for _ in range(30):
             time.sleep(0.2)
-            if is_gateway_healthy(PORT):
-                logger.info(f"[Kiro] Gateway successfully listening on http://127.0.0.1:{PORT}")
+            if is_gateway_healthy(INTERNAL_PORT):
+                logger.info(f"[Kiro] Gateway successfully listening on http://127.0.0.1:{INTERNAL_PORT}")
                 break
     except Exception as e:
         logger.error(f"[Kiro] Failed to launch gateway process: {e}")
@@ -521,8 +523,8 @@ def _start_token_watcher():
             time.sleep(300)  # Check every 5 minutes
             try:
                 ensure_fresh_token()
-                if not is_port_in_use(PORT):
-                    logger.info("[Kiro] Gateway not responding on port 8997, restarting...")
+                if not is_port_in_use(INTERNAL_PORT):
+                    logger.info("[Kiro] Gateway not responding on port 8996, restarting...")
                     start_gateway()
             except Exception:
                 pass
@@ -807,12 +809,169 @@ def register(ctx):
 
 atexit.register(stop_gateway)
 
+# ── Compaction Proxy (port 8997 → Go gateway on 8996) ─────────────────
+from http.server import HTTPServer, BaseHTTPRequestHandler
+
+MAX_CONTEXT_CHARS = 900_000
+
+def _compact_messages_kiro(messages):
+    """Compact large message histories for Kiro/Claude context limits."""
+    if len(messages) <= 100:
+        return messages
+
+    total_chars = sum(len(json.dumps(m, default=str)) for m in messages)
+    if total_chars <= MAX_CONTEXT_CHARS:
+        return messages
+
+    system_msgs = [m for m in messages if m.get("role") in ("system", "developer")]
+    non_system = [m for m in messages if m.get("role") not in ("system", "developer")]
+
+    if len(non_system) <= 85:
+        return messages
+
+    head = non_system[:5]
+    tail = non_system[-80:]
+    middle = non_system[5:-80]
+
+    compacted_middle = []
+    for msg in middle:
+        role = msg.get("role", "")
+        if role == "tool":
+            continue
+        if msg.get("tool_calls"):
+            continue
+        content = msg.get("content")
+        if content and isinstance(content, str) and content.strip():
+            truncated = content[:300] + "…" if len(content) > 300 else content
+            compacted_middle.append({"role": role, "content": truncated})
+
+    separator = {"role": "user", "content": "[Earlier conversation compacted. Recent messages below.]"}
+    result = system_msgs + head + [separator] + compacted_middle + tail
+
+    result_chars = sum(len(json.dumps(m, default=str)) for m in result)
+    if result_chars > MAX_CONTEXT_CHARS:
+        result = system_msgs + head + [separator] + tail
+
+    return result
+
+
+class KiroCompactionProxy(BaseHTTPRequestHandler):
+    """Thin proxy: compacts large sessions, forwards everything else unchanged."""
+
+    def log_message(self, format, *args):
+        pass  # Suppress default logging
+
+    def do_GET(self):
+        self._proxy_passthrough("GET")
+
+    def do_POST(self):
+        content_len = int(self.headers.get("Content-Length", 0))
+        body = self.rfile.read(content_len) if content_len else b""
+
+        # Only compact /v1/chat/completions with large message arrays
+        if "/v1/chat/completions" in self.path and body:
+            try:
+                data = json.loads(body)
+                messages = data.get("messages", [])
+                if len(messages) > 100:
+                    original_count = len(messages)
+                    data["messages"] = _compact_messages_kiro(messages)
+                    compacted_count = len(data["messages"])
+                    if compacted_count < original_count:
+                        logger.info(f"[Kiro Proxy] Compacted {original_count} → {compacted_count} messages")
+                    body = json.dumps(data).encode("utf-8")
+            except Exception:
+                pass  # Forward original on parse failure
+
+        self._proxy_forward("POST", body)
+
+    def _proxy_passthrough(self, method):
+        self._proxy_forward(method, None)
+
+    def _proxy_forward(self, method, body):
+        """Forward request to Go gateway on INTERNAL_PORT."""
+        url = f"http://127.0.0.1:{INTERNAL_PORT}{self.path}"
+        headers = {k: v for k, v in self.headers.items() if k.lower() not in ("host", "content-length")}
+        if body:
+            headers["Content-Length"] = str(len(body))
+
+        try:
+            req = urllib.request.Request(url, data=body, headers=headers, method=method)
+            resp = urllib.request.urlopen(req, timeout=180)
+
+            self.send_response(resp.status)
+            # Check if streaming
+            content_type = resp.headers.get("Content-Type", "")
+            for header, value in resp.headers.items():
+                if header.lower() not in ("transfer-encoding", "connection"):
+                    self.send_header(header, value)
+            self.end_headers()
+
+            if "text/event-stream" in content_type:
+                # Stream SSE
+                try:
+                    while True:
+                        chunk = resp.read(4096)
+                        if not chunk:
+                            break
+                        self.wfile.write(chunk)
+                        self.wfile.flush()
+                except Exception:
+                    pass
+            else:
+                resp_body = resp.read()
+                self.wfile.write(resp_body)
+                self.wfile.flush()
+
+        except urllib.error.HTTPError as he:
+            self.send_response(he.code)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(he.read())
+            self.wfile.flush()
+        except Exception as e:
+            error_body = json.dumps({"error": {"message": f"Kiro proxy error: {e}", "type": "proxy_error"}}).encode()
+            self.send_response(502)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(error_body)))
+            self.end_headers()
+            self.wfile.write(error_body)
+            self.wfile.flush()
+
+    def handle_one_request(self):
+        try:
+            super().handle_one_request()
+        except Exception:
+            pass
+
+
+def start_compaction_proxy():
+    """Start the compaction proxy on PORT (8997) in a daemon thread."""
+    from http.server import ThreadingHTTPServer
+
+    def run_proxy():
+        server = ThreadingHTTPServer(("127.0.0.1", PORT), KiroCompactionProxy)
+        server.daemon_threads = True
+        logger.info(f"[Kiro] Compaction proxy listening on http://127.0.0.1:{PORT} → Go gateway on {INTERNAL_PORT}")
+        server.serve_forever()
+
+    t = threading.Thread(target=run_proxy, daemon=True)
+    t.start()
+
+
 # ── Auto-start on plugin load ─────────────────────────────────────────
+# NOTE: We intentionally do NOT auto-import from Kiro CLI/IDE on startup.
+# Doing so reads Kiro IDE's own SQLite DB and can trigger Kiro IDE to re-login.
+# Users must explicitly run /kiro-login (native SSO flow) or /kiro-import
+# (one-time manual import from Kiro CLI) to authenticate.
 try:
     init_hermes_kiro_db()
-    if not read_token_from_db():
-        import_from_kiro_cli()
-    start_gateway()
-    _start_token_watcher()
+    # Only start gateway if Hermes-native credentials already exist
+    if read_token_from_db():
+        start_gateway()
+        start_compaction_proxy()
+        _start_token_watcher()
+    else:
+        logger.info("[Kiro] No credentials in isolated Hermes store. Run /kiro-login to authenticate.")
 except Exception as e:
     logger.error(f"[Kiro] Init error: {e}")
