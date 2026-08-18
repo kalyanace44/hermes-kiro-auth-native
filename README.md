@@ -4,14 +4,15 @@
 [![Hermes Agent](https://img.shields.io/badge/Hermes-Plugin-blue.svg)](https://hermesagent.com)
 [![Platform](https://img.shields.io/badge/Platform-macOS%20%7C%20Linux%20%7C%20Windows-green.svg)](https://kiro.dev)
 
-> Native Hermes Agent plugin to seamlessly authenticate and query **Claude 3.7 Sonnet**, **Claude Opus 4.8**, **Claude 5**, **GPT-5.6**, and other frontier models directly using your **AWS Kiro (Amazon Q Developer / CodeWhisperer)** subscription.
+> Native Hermes Agent plugin to seamlessly authenticate and query **Claude 3.7 Sonnet**, **Claude Opus 4.8**, **Claude 5**, **GPT-5.6**, and other frontier models directly using your **AWS Kiro (Amazon Q Developer / CodeWhisperer)** subscription with an isolated, dedicated authentication store.
 
 ---
 
 ## ✨ Features
 
+- 🔒 **Isolated Authentication Store**: Independent `~/.hermes/kiro-auth.sqlite3` and `~/.hermes/kiro-accounts.json` storage to prevent any session conflicts with Kiro IDE or local tools.
 - 🚀 **Zero-Config Self-Healing Gateway**: Automatically manages the local gateway daemon on port `8997` with Hermes.
-- 🔑 **Automatic Token & Profile Discovery**: Automatically finds and extracts your AWS SSO / Kiro credentials and CodeWhisperer profile ARN from your local `kiro-cli` SQLite database across macOS, Linux, and Windows.
+- 🔑 **Automatic Token & Profile Discovery**: Automatically finds and extracts your AWS SSO / Kiro credentials and CodeWhisperer profile ARN on first setup, with direct SSO device login available anytime.
 - 🔄 **Dynamic Model Discovery**: Real-time querying of the full live model catalogue directly from the AWS Kiro service.
 - ⚡ **Ultra-Fast Token Streaming**: Unbuffered Server-Sent Events (SSE) streaming with sub-100ms first-token latency.
 - 🛠️ **Hermes Model Selector Integration**: Integrates directly into the Hermes UI dropdown model picker as a first-class model provider.
@@ -45,6 +46,19 @@
 
 ---
 
+## 💬 Slash Commands & CLI
+
+Manage your AWS Kiro account directly inside Hermes chat or terminal:
+
+| Slash Command | CLI Equivalent | Description |
+|---|---|---|
+| `/kiro` or `/kiro-accounts` | `hermes kiro accounts` | View configured accounts, regions, token lifetime, and gateway health |
+| `/kiro-login [region] [url]` | `hermes kiro login` | Authenticate directly via AWS SSO device authorization in your browser |
+| `/kiro-reload` | `hermes kiro reload` | Refresh token and restart the local gateway daemon |
+| `/kiro-import` | `hermes kiro import` | Force re-import credentials from local Kiro CLI / IDE into isolated store |
+
+---
+
 ## 📦 Quick Installation
 
 ### Option 1: One-Line Installer (Recommended)
@@ -71,8 +85,9 @@ chmod +x install.sh && ./install.sh
 │  (Desktop / CLI)│  <──────────────────────────── │  (Port 8997)           │
 └─────────────────┘                                └───────────┬────────────┘
                                                                │
-                                         Reads AWS SSO / OIDC  │
-                                         Token from SQLite DB  ▼
+                                          Reads AWS SSO / OIDC │ (Isolated Store:
+                                          Token from SQLite DB │  ~/.hermes/kiro-auth.sqlite3)
+                                                               ▼
                                                    ┌────────────────────────┐
                                                    │  AWS Kiro Service      │
                                                    │  (Amazon Q Developer)  │
@@ -81,17 +96,8 @@ chmod +x install.sh && ./install.sh
 
 ---
 
-## 🛠️ Troubleshooting
+## 🛠️ Verification & Testing
 
-### 1. `kiro whoami` or missing session
-Ensure you are logged into the Kiro CLI on your system:
-```bash
-kiro-cli auth login
-# or
-kiro login
-```
-
-### 2. Manual Verification
 You can test the background gateway directly from your terminal:
 ```bash
 curl http://127.0.0.1:8997/v1/chat/completions \
