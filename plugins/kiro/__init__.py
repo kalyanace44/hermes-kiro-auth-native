@@ -441,12 +441,12 @@ def kill_existing_gateway():
 def start_gateway():
     global _gateway_process
 
-    if is_gateway_healthy(PORT):
-        logger.info(f"[Kiro] Gateway already healthy on port {PORT}.")
+    if is_gateway_healthy(INTERNAL_PORT):
+        logger.info(f"[Kiro] Gateway already healthy on port {INTERNAL_PORT}.")
         return
 
     # If port has lingering non-responsive process, clean it up
-    if is_port_in_use(PORT):
+    if is_port_in_use(INTERNAL_PORT):
         kill_existing_gateway()
         time.sleep(0.5)
 
